@@ -4,7 +4,6 @@ open System
 open Npgsql
 open ORM.Database
 
-// Типы данных для представления схемы БД
 type ColumnType =
     | Int
     | BigInt
@@ -54,7 +53,6 @@ type TableInfo = {
     PrimaryKeyColumns: string list
 }
 
-// Модуль для работы с information_schema
 module SchemaReader =
     
     let private mapDataType (dataType: string) (characterMaxLength: int option) (numericPrecision: int option) (numericScale: int option) =
@@ -82,7 +80,6 @@ module SchemaReader =
         | "bytea" -> Bytea
         | custom -> Custom custom
     
-    // Получаем все таблицы в схеме public
     let getTables (connection: NpgsqlConnection) =
         let query = """
             SELECT table_schema, table_name
@@ -102,7 +99,6 @@ module SchemaReader =
         reader.Close()
         tables |> Seq.toList
     
-    // Получаем информацию о колонках таблицы
     let getColumns (connection: NpgsqlConnection) (schema: string) (tableName: string) =
         let query = """
             SELECT 
@@ -152,7 +148,6 @@ module SchemaReader =
         reader.Close()
         columns |> Seq.toList
     
-    // Получаем информацию об ограничениях таблицы
     let getConstraints (connection: NpgsqlConnection) (schema: string) (tableName: string) =
         let query = """
             SELECT
@@ -212,7 +207,6 @@ module SchemaReader =
         reader.Close()
         (constraints |> Seq.toList, primaryKeys |> Seq.toList)
     
-    // Получаем полную информацию о таблице
     let getTableInfo (connection: NpgsqlConnection) (schema: string) (tableName: string) =
         let columns = getColumns connection schema tableName
         let (constraints, primaryKeys) = getConstraints connection schema tableName
@@ -225,7 +219,6 @@ module SchemaReader =
             PrimaryKeyColumns = primaryKeys
         }
     
-    // Получаем информацию о всех таблицах
     let getAllTablesInfo (dbConnection: DatabaseConnection) =
         use conn = dbConnection.GetOpenConnection()
         let tables = getTables conn
@@ -234,7 +227,6 @@ module SchemaReader =
         |> List.map (fun (schema, tableName) -> 
             getTableInfo conn schema tableName)
     
-    // Форматирование информации о таблице для вывода
     let formatColumnType (colType: ColumnType) =
         match colType with
         | Int -> "INT"
@@ -298,7 +290,6 @@ module SchemaReader =
         
         sb.ToString()
 
-// Публичный API модуля SqlParser
 module Parser =
     let parseDatabaseSchema() =
         let db = DatabaseConnection()
