@@ -14,7 +14,7 @@
 ```sh
 dotnet clean; dotnet build;
 ```
-Создаем получаем типы из схемы (сохраняются в generated/GeneratedTypes.fs)
+Создаем типы из схемы (сохраняются в generated/GeneratedTypes.fs)
 ```sh
 dotnet run -- --generate-types
 ```
