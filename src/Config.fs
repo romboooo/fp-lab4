@@ -1,4 +1,3 @@
-// src/Config.fs - синглтон для конфигурации
 namespace ORM.Config
 
 open System

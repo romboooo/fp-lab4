@@ -60,7 +60,6 @@ type DatabaseConnection() =
         use cmd = new NpgsqlCommand(sql, conn)
         use reader = cmd.ExecuteReader()
         
-        // Читаем и выводим результат
         while reader.Read() do
             for i = 0 to reader.FieldCount - 1 do
                 let columnName = reader.GetName(i)

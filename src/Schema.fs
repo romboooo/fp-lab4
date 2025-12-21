@@ -1,5 +1,7 @@
 namespace ORM.Schema
 
+open System
+
 type ColumnType =
     | Int
     | BigInt
@@ -7,14 +9,14 @@ type ColumnType =
     | Text                           
     | Boolean
     | Json                            
-    | Date  
-
+    | Date
 
 type ColumnInfo = {
     Name: string
     DataType: ColumnType
     IsNullable: bool
     IsPrimaryKey: bool
+    MaxLength: int option
 }
 
 type TableInfo = {
@@ -22,17 +24,3 @@ type TableInfo = {
     Name: string
     Columns: ColumnInfo list
 }
-
-module TypeMapping = 
-    let toFSharpType (col: ColumnInfo) =
-        let baseType = 
-            match col.DataType with
-            | Int -> "int"
-            | BigInt -> "int64"
-            | Varchar _ | Text | Json -> "string" // wip
-            | Boolean -> "bool"
-            | Date -> "System.DateTime"
-        
-        if col.IsNullable && baseType <> "string"
-        then baseType + " option"
-        else baseType
