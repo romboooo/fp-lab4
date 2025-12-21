@@ -1,7 +1,9 @@
+// src/Database.fs
 module ORM.Database
 
 open Npgsql
 open System
+open System.Data.Common
 open dotenv.net
 
 type ConnectionConfig = {
@@ -15,7 +17,6 @@ type ConnectionConfig = {
 module Config =
     let load() =
         DotEnv.Load()
-
 
         let host = System.Environment.GetEnvironmentVariable("POSTGRES_HOST")
         let port = System.Environment.GetEnvironmentVariable("POSTGRES_PORT")
@@ -70,3 +71,34 @@ type DatabaseConnection() =
             printfn ""
         
         printfn "Query executed successfully"
+    
+    member this.ExecuteNonQuery(sql: string, parameters: NpgsqlParameter list) =
+        use conn = this.GetOpenConnection()
+        use cmd = new NpgsqlCommand(sql, conn)
+        cmd.Parameters.AddRange(parameters |> List.toArray)
+        cmd.ExecuteNonQuery()
+
+    member this.ExecuteScalar(sql: string, parameters: NpgsqlParameter list) =
+        use conn = this.GetOpenConnection()
+        use cmd = new NpgsqlCommand(sql, conn)
+        cmd.Parameters.AddRange(parameters |> List.toArray)
+        cmd.ExecuteScalar()
+
+    member this.ExecuteReaderAction(sql: string, parameters: NpgsqlParameter list, action: DbDataReader -> 'T) =
+        use conn = this.GetOpenConnection()
+        use cmd = new NpgsqlCommand(sql, conn)
+        cmd.Parameters.AddRange(parameters |> List.toArray)
+        use reader = cmd.ExecuteReader()
+        action reader
+
+    member this.WithTransaction (action: NpgsqlConnection -> 'T) =
+        use conn = this.GetOpenConnection()
+        use transaction = conn.BeginTransaction()
+        
+        try
+            let result = action conn
+            transaction.Commit()
+            Ok result
+        with ex ->
+            transaction.Rollback()
+            Error ex.Message
