@@ -1,9 +1,6 @@
-# fp-lab4
-
-
 # type-safe ORM на языке f#
 
-# Структура
+## Структура
 1. src/Database.fs - подключение к БД и выполнение запросов
 2. src/SqlParser.fs - парсинг схемы БД 
 3. src/TypeGenerator.fs - генерация типов F# из схемы
@@ -11,7 +8,7 @@
 5. src/core/ORMCore.fs - высокоуровневый API для CRUD операций
 6. src/DataMapper.fs - маппинг f# типов -> sql типы и наоборот
 
-# Пример использования
+## Пример использования
 
 Билдим проект
 ```sh
@@ -27,7 +24,7 @@ dotnet run -- --generate-types
 dotnet run //WIP
 ```
 
-# конфигурация .env файла (необходимо поместить в корень проекта)
+## конфигурация .env файла (необходимо поместить в корень проекта)
 
 ```
 POSTGRES_USER=username
@@ -37,7 +34,7 @@ POSTGRES_HOST=localhost
 POSTGRES_PORT=6767
 ```
 
-# Как это работает?
+## Как это работает?
 
 1. Подключаемся к базе данных
 2. Получаем схемы таблиц из вашей бд (они должны быть доступны из information_schema и table_schema должен быть 'public')
@@ -49,7 +46,7 @@ POSTGRES_PORT=6767
 8. Мапинг результата (если select)
 9. Логирование ошибок (по наличию)
 
-# Доступные sql типы
+## Доступные sql типы
 src/Schema.fs
 ```f#
 type ColumnType =
@@ -62,7 +59,7 @@ type ColumnType =
     | Date
 ```
 
-# Доступные sql запросы
+## Доступные sql запросы
 
 ```f#
 type QueryType = 
@@ -72,12 +69,13 @@ type QueryType =
     | Delete of DeleteQuery
 ```
 
-# Roadmap
+## Roadmap
 
 Этап 1: Безопасная конфигурация ✅
   * Подключение к PostgreSQL через Npgsql ✅
   * Чтение данных из .env ✅
   * Базовая проверка соединения ✅
+
 Этап 2: Парсинг схемы базы данных (SqlParser)✅
   Цель: Получить структуру таблиц из БД 
   1. Получить список всех таблиц в схеме public ✅
@@ -90,6 +88,7 @@ type QueryType =
           * Признаком первичного ключа
           * Ограничениями (varchar(100), decimal(10,2), etc.)
   3. Сохранить эту структуру в F# типах ✅
+     
 Этап 3: генератор типов на этапе build ✅
   Цель: представить таблицы f# как типы 
   1. Генерация типов на основе схемы из Этапа 2: ✅
@@ -104,6 +103,7 @@ type QueryType =
       * и т.д.
   3. Генерация типов во build ✅
   4. Валидация типов после билда ✅
+     
 Этап 4: query builder
   1. Базовый DSL для построения запросов: ✅
       * SELECT * FROM table WHERE condition
@@ -112,18 +112,19 @@ type QueryType =
       * DELETE FROM table WHERE condition
   2. Параметризованные запросы (защита от SQL-инъекций) ✅
   3. Поддержка простых условий (WHERE, ORDER BY, LIMIT) ✅
+     
 Этап 5: ORM Core - CRUD операции
   Цель: Реализовать базовые методы ORM
-  1. Create/Insert: db.Users.Insert({ ... }) TODO
+  1. Create/Insert: db.Users.Insert({ ... }) ⚠️TODO
   2. Read/Select: ✅
       * db.Users.FindAll()
       * db.Users.FindBy(fun u -> u.Id = 1)
       * db.Users.Where(fun u -> u.Age > 18).ToList()
-  3. Update: db.Users.Update(1, {| Name = "New Name" |}) TODO
-  4. Delete: db.Users.Delete(1) TODO
+  3. Update: db.Users.Update(1, {| Name = "New Name" |}) ⚠️TODO
+  4. Delete: db.Users.Delete(1) ⚠️ TODO
 
 
 
-# Проблемы
+## Проблемы
   1. Конфликт зависимостей uGet с FSharp.TypeProviders.SDK (deprecated: при неудачной попытке реализовать type Provider)
   2. Не ясно как гарантировать подключение к бд на этапе компиляции (deprecated: при неудачной попытке реализовать type Provider)
