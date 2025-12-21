@@ -9,6 +9,10 @@
     <Compile Include="src/Schema.fs" />
     <Compile Include="src/SqlParser.fs" />
     <Compile Include="src/TypeGenerator.fs" />
+    <Compile Include="src/QueryBuilder.fs" />
+    <Compile Include="src/DataMapper.fs" />
+    <Compile Include="src/core/ORMCore.fs" />
+    <!-- GeneratedTypes должен быть последним, так как зависит от всех предыдущих -->
     <Compile Include="generated/GeneratedTypes.fs">
       <Visible>false</Visible>
     </Compile>
