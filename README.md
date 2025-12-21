@@ -1,4 +1,4 @@
-# type-safe ORM на языке f#
+# type-safe postgres ORM на языке f#
 
 ## Структура
 1. src/Database.fs - подключение к БД и выполнение запросов
