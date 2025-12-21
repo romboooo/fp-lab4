@@ -1,19 +1,19 @@
 module ORM.TypeGenerator
 
 open System
-open System.Text
+open System.IO
 open ORM.Schema
 open ORM.SqlParser
 
 module CodeGenerator =
-    let toPascalCase (name: string) : string =
+    let toPascalCase (name: string) =
         name.Split('_')
         |> Array.map (fun part -> 
             if String.IsNullOrEmpty(part) then ""
             else part.[0].ToString().ToUpper() + part.Substring(1).ToLower())
         |> String.concat ""
 
-    let toCamelCase (name: string) : string =
+    let toCamelCase (name: string) =
         let parts = name.Split('_', StringSplitOptions.RemoveEmptyEntries)
         match parts with
         | [||] -> name
@@ -24,14 +24,13 @@ module CodeGenerator =
                 s.[0].ToString().ToUpper() + s.Substring(1).ToLower())
             first + String.concat "" rest
 
-    let pgTypeToFSharpType (column: ColumnInfo) : string =
+    let pgTypeToFSharpType (column: ColumnInfo) =
         let baseType =
             match column.DataType with
             | Int -> "int"
             | BigInt -> "int64"
-            | Varchar _ | Text -> "string"
+            | Varchar _ | Text | Json -> "string"
             | Boolean -> "bool"
-            | Json -> "string"
             | Date -> "System.DateTime"
         
         match baseType with
@@ -39,7 +38,7 @@ module CodeGenerator =
         | _ when column.IsNullable -> baseType + " option"
         | _ -> baseType
 
-    let generateRecordType (table: TableInfo) : string =
+    let generateRecordType (table: TableInfo) =
         let typeName = toPascalCase table.Name
         
         let fields =
@@ -47,79 +46,66 @@ module CodeGenerator =
             |> List.map (fun col ->
                 let fieldName = toCamelCase col.Name
                 let fieldType = pgTypeToFSharpType col
-                let pkAttr = if col.IsPrimaryKey then "[<PrimaryKey>] " else ""
-                sprintf "    %s%s: %s" pkAttr fieldName fieldType)
+                if col.IsPrimaryKey then
+                    sprintf "    [<PrimaryKey>] %s: %s" fieldName fieldType
+                else
+                    sprintf "    %s: %s" fieldName fieldType)
             |> String.concat "\n"
         
-        sprintf """[<CLIMutable>]
-        type %s = {
-        %s
-        }""" typeName fields
+        let lines = [
+            sprintf "type %s = {" typeName
+            fields
+            "}"
+        ]
+        String.concat "\n" lines
 
-    let generatePrimaryKeyAttribute() : string =
-        """[<AttributeUsage(AttributeTargets.Property)>]
-type PrimaryKeyAttribute() =
-    inherit Attribute()"""
-
-    let generateAll (tables: TableInfo list) : string =
-        let sb = StringBuilder()
+    let generateAllTypes (tables: TableInfo list) =
+        let headerLines = [
+            "// AUTO-GENERATED FILE - DO NOT EDIT"
+            "// Generated at: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+            "// Generated from database schema"
+            ""
+            "namespace ORM.GeneratedTypes"
+            ""
+            "open System"
+            ""
+            "[<AttributeUsage(AttributeTargets.Property)>]"
+            "type PrimaryKeyAttribute() ="
+            "    inherit Attribute()"
+            ""
+        ]
         
-        sb.AppendLine("// AUTO-GENERATED FILE") |> ignore
-        sb.AppendLine("// Generated at: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")) |> ignore
-        sb.AppendLine("// DO NOT EDIT MANUALLY") |> ignore
-        sb.AppendLine() |> ignore
+        let typeLines = 
+            tables
+            |> List.map generateRecordType
+            |> List.collect (fun s -> [s; ""])
         
-        sb.AppendLine("namespace ORM.GeneratedTypes") |> ignore
-        sb.AppendLine() |> ignore
-        
-        sb.AppendLine("open System") |> ignore
-        sb.AppendLine() |> ignore
-        
-        sb.AppendLine(generatePrimaryKeyAttribute()) |> ignore
-        sb.AppendLine() |> ignore
-        
-        // Генерация типов
-        tables
-        |> List.iter (fun table ->
-            sb.AppendLine(generateRecordType table) |> ignore
-            sb.AppendLine() |> ignore)
-        
-        sb.ToString()
-
-module FileWriter =
-    open System.IO
-    
-    let writeToFile (content: string) (outputPath: string) : Result<unit, string> =
-        try
-            let directory = Path.GetDirectoryName(outputPath)
-            if not (String.IsNullOrEmpty(directory)) && not (Directory.Exists(directory)) then
-                Directory.CreateDirectory(directory) |> ignore
-            
-            File.WriteAllText(outputPath, content, Encoding.UTF8)
-            Ok ()
-        with ex ->
-            Error ex.Message
+        String.concat "\n" (headerLines @ typeLines)
 
 module Generator =
-    let generateTypes (outputPath: string) : Result<string, string> =
+    let generateTypes () =
         try
             let tables = Parser.parseDatabaseSchema()
-            let generatedCode = CodeGenerator.generateAll tables
+            let generatedCode = CodeGenerator.generateAllTypes tables
             
-            match FileWriter.writeToFile generatedCode outputPath with
-            | Ok _ -> 
-                printfn "Types generated successfully at: %s" outputPath
-                Ok generatedCode
-            | Error err -> Error err
+            let generatedDir = "generated"
+            let outputPath = Path.Combine(generatedDir, "GeneratedTypes.fs")
+            
+            if not (Directory.Exists(generatedDir)) then
+                Directory.CreateDirectory(generatedDir) |> ignore
+            
+            File.WriteAllText(outputPath, generatedCode, System.Text.Encoding.UTF8)
+            
+            Ok generatedCode
             
         with ex ->
             Error ex.Message
-    
-    let validateGeneratedTypes (generatedCode: string) : Result<unit, string list> =
+
+    let validateGeneratedTypes (generatedCode: string) =
         let validations = [
-            ("namespace ORM.GeneratedTypes", "Missing namespace declaration")
-            ("[<CLIMutable>]", "Missing CLIMutable attribute")
+            ("namespace ORM.GeneratedTypes", "Missing namespace")
             ("type ", "No types generated")
+            ("PrimaryKeyAttribute", "Missing PrimaryKey attribute definition")
         ]
         
         let errors =
@@ -127,7 +113,4 @@ module Generator =
             |> List.filter (fun (text, _) -> not (generatedCode.Contains(text)))
             |> List.map snd
         
-        if errors.IsEmpty then
-            Ok ()
-        else
-            Error errors
+        if errors.IsEmpty then Ok () else Error errors
