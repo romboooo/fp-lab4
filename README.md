@@ -21,6 +21,11 @@ dotnet clean; dotnet build;
 ```sh
 dotnet run -- --generate-types
 ```
+Запуск
+
+```sh
+dotnet run //WIP
+```
 
 # конфигурация .env файла (необходимо поместить в корень проекта)
 
