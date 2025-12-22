@@ -7,12 +7,12 @@
   <ItemGroup>
     <Compile Include="src/Database.fs" />
     <Compile Include="src/Schema.fs" />
+    <Compile Include="src/PrimaryKeyAttribute.fs" />
     <Compile Include="src/SqlParser.fs" />
     <Compile Include="src/TypeGenerator.fs" />
     <Compile Include="src/QueryBuilder.fs" />
     <Compile Include="src/DataMapper.fs" />
     <Compile Include="src/core/ORMCore.fs" />
-    <!-- GeneratedTypes должен быть последним, так как зависит от всех предыдущих -->
     <Compile Include="generated/GeneratedTypes.fs">
       <Visible>false</Visible>
     </Compile>
@@ -33,22 +33,14 @@
     
     <MakeDir Directories="generated" Condition="!Exists('generated')" />
     
-    <WriteLinesToFile
-      File="$(GeneratedTypesPath)"
-      Lines="namespace ORM.GeneratedTypes%0A%0Aopen System%0A%0A// This file will be auto-generated%0A// Run: dotnet run -- --generate-types"
-      Overwrite="false"
-      Condition="!Exists('$(GeneratedTypesPath)')" />
+    <WriteLinesToFile File="$(GeneratedTypesPath)" Lines="namespace ORM.GeneratedTypes%0A%0Aopen System%0A%0A// This file will be auto-generated%0A// Run: dotnet run -- --generate-types" Overwrite="false" Condition="!Exists('$(GeneratedTypesPath)')" />
     
-    <Message Text="Generated types file exists or was created: $(GeneratedTypesPath)" 
-             Importance="normal" 
-             Condition="Exists('$(GeneratedTypesPath)')" />
+    <Message Text="Generated types file exists or was created: $(GeneratedTypesPath)" Importance="normal" Condition="Exists('$(GeneratedTypesPath)')" />
   </Target>
 
   <Target Name="RegenerateTypes">
     <Message Text="Forcing type regeneration..." Importance="high" />
-    <Exec Command="dotnet run -- --generate-types" 
-          WorkingDirectory="$(MSBuildProjectDirectory)"
-          IgnoreExitCode="false" />
+    <Exec Command="dotnet run -- --generate-types" WorkingDirectory="$(MSBuildProjectDirectory)" IgnoreExitCode="false" />
   </Target>
 
   <Target Name="CleanGeneratedTypes" AfterTargets="Clean">
