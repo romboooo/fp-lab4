@@ -1,5 +1,4 @@
 module ORM.QueryBuilder
-
 open System
 open Npgsql
 open ORM.Schema
@@ -101,7 +100,7 @@ module Condition =
     
     let or' cond1 cond2 = 
         Or(cond1, cond2)
-
+    
     let all conditions =
         match conditions with
         | [] -> failwith "At least one condition required"
@@ -124,7 +123,7 @@ module Query =
     
     let addParam name value (state: QueryBuilderState) =
         { state with Parameters = (name, value)::state.Parameters }
-
+    
     let select table =
         { QueryType = Select {
             Table = table
@@ -217,7 +216,6 @@ module Query =
 
 [<RequireQualifiedAccess>]
 module SqlGenerator =
-    
     let private operatorToString = function
         | ComparisonOperator.Equals -> "="
         | ComparisonOperator.NotEquals -> "<>"
@@ -234,20 +232,16 @@ module SqlGenerator =
             let paramName, newState = Query.newParamName state
             let sql = sprintf "%s %s @%s" column (operatorToString op) paramName
             sql, newState |> Query.addParam paramName value
-        
         | Binary(column, op, None) ->
             sprintf "%s %s NULL" column (operatorToString op), state
-        
         | And(cond1, cond2) ->
             let sql1, state1 = conditionToSql cond1 state
             let sql2, state2 = conditionToSql cond2 state1
             sprintf "(%s) AND (%s)" sql1 sql2, state2
-        
         | Or(cond1, cond2) ->
             let sql1, state1 = conditionToSql cond1 state
             let sql2, state2 = conditionToSql cond2 state1
             sprintf "(%s) OR (%s)" sql1 sql2, state2
-        
         | IsNull column -> sprintf "%s IS NULL" column, state
         | IsNotNull column -> sprintf "%s IS NOT NULL" column, state
     
@@ -272,70 +266,55 @@ module SqlGenerator =
             match limit with
             | Some n -> sprintf " LIMIT %d" n
             | None -> ""
-        
         let offsetPart =
             match offset with
             | Some n -> sprintf " OFFSET %d" n
             | None -> ""
-        
         limitPart + offsetPart
     
     let private generateSelect (query: SelectQuery) (state: QueryBuilderState) =
         let columnsSql = columnsToSql query.Columns
         let baseSql = sprintf "SELECT %s FROM %s" columnsSql query.Table
-        
         let (whereSql, stateWithWhere) = 
             match query.Where with
             | Some cond -> conditionToSql cond state
             | None -> "", state
-        
         let sqlWithWhere = 
             if String.IsNullOrEmpty whereSql then baseSql
             else baseSql + " WHERE " + whereSql
-        
         let orderBySql = orderByToSql query.OrderBy
         let limitOffsetSql = buildLimitOffset query.Limit query.Offset
-        
         let finalSql = sqlWithWhere + orderBySql + limitOffsetSql
-        
         let parameters =
             stateWithWhere.Parameters
             |> List.rev
             |> List.mapi (fun i (name, value) ->
                 NpgsqlParameter(name, value))
-        
         finalSql, parameters
     
     let private generateInsert (query: InsertQuery) (state: QueryBuilderState) =
         if List.isEmpty query.Columns then
             failwith "INSERT query must have at least one column-value pair"
-        
         let columns = query.Columns |> List.map fst |> String.concat ", "
         let paramNames = 
             query.Columns 
             |> List.mapi (fun i _ -> sprintf "@p%d" i)
             |> String.concat ", "
-        
         let baseSql = sprintf "INSERT INTO %s (%s) VALUES (%s)" query.Table columns paramNames
-        
         let returningSql =
             match query.Returning with
             | Some cols -> sprintf " RETURNING %s" (String.Join(", ", cols))
             | None -> ""
-        
         let finalSql = baseSql + returningSql
-        
         let parameters =
             query.Columns
             |> List.mapi (fun i (_, value) ->
                 NpgsqlParameter(sprintf "p%d" i, value))
-        
         finalSql, parameters
     
     let private generateUpdate (query: UpdateQuery) (state: QueryBuilderState) =
         if List.isEmpty query.Set then
             failwith "UPDATE query must have at least one SET clause"
-        
         let (setClause, stateWithSet) =
             query.Set
             |> List.fold (fun (clauses, accState) (col, value) ->
@@ -344,45 +323,36 @@ module SqlGenerator =
                 let updatedState = newState |> Query.addParam paramName value
                 clause::clauses, updatedState
             ) ([], state)
-        
         let setClauseSql = setClause |> List.rev |> String.concat ", "
         let baseSql = sprintf "UPDATE %s SET %s" query.Table setClauseSql
-        
         let (whereSql, stateWithWhere) = 
             match query.Where with
             | Some cond -> conditionToSql cond stateWithSet
             | None -> "", stateWithSet
-        
         let finalSql = 
             if String.IsNullOrEmpty whereSql then baseSql
             else baseSql + " WHERE " + whereSql
-        
         let parameters =
             stateWithWhere.Parameters
             |> List.rev
             |> List.mapi (fun i (name, value) ->
                 NpgsqlParameter(name, value))
-        
         finalSql, parameters
     
     let private generateDelete (query: DeleteQuery) (state: QueryBuilderState) =
         let baseSql = sprintf "DELETE FROM %s" query.Table
-        
         let (whereSql, stateWithWhere) = 
             match query.Where with
             | Some cond -> conditionToSql cond state
             | None -> "", state
-        
         let finalSql = 
             if String.IsNullOrEmpty whereSql then baseSql
             else baseSql + " WHERE " + whereSql
-        
         let parameters =
             stateWithWhere.Parameters
             |> List.rev
             |> List.map (fun (name, value) ->
                 NpgsqlParameter(name, value))
-        
         finalSql, parameters
     
     let generate (state: QueryBuilderState) : string * NpgsqlParameter list =
@@ -394,23 +364,108 @@ module SqlGenerator =
 
 [<AutoOpen>]
 module TypeSafeHelpers =
+    open Microsoft.FSharp.Reflection
+    open ORM  // Для доступа к PrimaryKeyAttribute
     
-    // Эти функции будут использоваться в ORMCore.fs
-    // Они обеспечивают runtime type safety
+    let private isOptionType (typ: System.Type) =
+        typ.IsGenericType && typ.GetGenericTypeDefinition() = typedefof<option<_>>
     
-    let validateRecord (record: 'T) (tableName: string) =
-        // Здесь можно добавить валидацию:
-        // - Проверка обязательных полей
-        // - Проверка типов
-        // - Проверка ограничений (varchar length и т.д.)
-        // Пока просто заглушка
-        Ok record
+    let private getValueFromOption (value: obj) =
+        let typ = value.GetType()
+        if isOptionType typ then
+            let valueProperty = typ.GetProperty("Value")
+            if valueProperty = null then null
+            else valueProperty.GetValue(value)
+        else
+            value
     
     let toInsertValues (record: 'T) : (string * obj) list =
-        // Рефлексия для преобразования записи в список пар (колонка, значение)
-        // Это runtime, но нам нужно type-safe API
-        []
+        let recordType = typeof<'T>
+        if not (FSharpType.IsRecord(recordType)) then
+            failwithf "Type %s is not an F# record" recordType.Name
+        
+        FSharpType.GetRecordFields(recordType)
+        |> Array.map (fun prop ->
+            let value = FSharpValue.GetRecordField(record, prop)
+            let propName = prop.Name
+            
+            // Обработка option типов
+            let dbValue = 
+                if isOptionType prop.PropertyType then
+                    if value = null || (value :?> Option<_>).IsNone then
+                        box DBNull.Value
+                    else
+                        getValueFromOption value |> box
+                elif value = null then
+                    box DBNull.Value
+                else
+                    value
+            
+            (propName.ToLower(), dbValue))
+        |> Array.toList
     
     let toUpdateValues (record: 'T) (updateFields: string list) : (string * obj) list =
-        // Возвращает только указанные поля для обновления
-        []
+        let recordType = typeof<'T>
+        if not (FSharpType.IsRecord(recordType)) then
+            failwithf "Type %s is not an F# record" recordType.Name
+        
+        let fieldsToUpdate = Set.ofList (updateFields |> List.map (fun s -> s.ToLower()))
+        
+        FSharpType.GetRecordFields(recordType)
+        |> Array.filter (fun prop -> fieldsToUpdate.Contains(prop.Name.ToLower()))
+        |> Array.map (fun prop ->
+            let value = FSharpValue.GetRecordField(record, prop)
+            let propName = prop.Name
+            
+            let dbValue = 
+                if isOptionType prop.PropertyType then
+                    if value = null || (value :?> Option<_>).IsNone then
+                        box DBNull.Value
+                    else
+                        getValueFromOption value |> box
+                elif value = null then
+                    box DBNull.Value
+                else
+                    value
+            
+            (propName.ToLower(), dbValue))
+        |> Array.toList
+    
+    let validateRecord (record: 'T) (tableName: string) =
+        try
+            let recordType = typeof<'T>
+            
+            if not (FSharpType.IsRecord(recordType)) then
+                Error (sprintf "Type %s is not an F# record" recordType.Name)
+            else
+                let properties = recordType.GetProperties()
+                
+                let errors = ResizeArray<string>()
+                
+                // Проверяем первичные ключи
+                let primaryKeyProps = 
+                    properties
+                    |> Array.filter (fun prop -> 
+                        prop.GetCustomAttributes(typeof<PrimaryKeyAttribute>, false).Length > 0)
+                
+                for pkProp in primaryKeyProps do
+                    let value = pkProp.GetValue(record)
+                    if value = null then
+                        errors.Add(sprintf "Primary key field '%s' cannot be null" pkProp.Name)
+                
+                // Проверяем обязательные поля (не nullable)
+                for prop in properties do
+                    let isOption = isOptionType prop.PropertyType
+                    let isPrimaryKey = prop.GetCustomAttributes(typeof<PrimaryKeyAttribute>, false).Length > 0
+                    
+                    if not isOption && not isPrimaryKey then
+                        let value = prop.GetValue(record)
+                        if value = null then
+                            errors.Add(sprintf "Required field '%s' cannot be null" prop.Name)
+                
+                if errors.Count > 0 then
+                    Error (String.concat "; " errors)
+                else
+                    Ok record
+        with ex ->
+            Error (sprintf "Validation error: %s" ex.Message)

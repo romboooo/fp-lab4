@@ -51,6 +51,10 @@ type DatabaseConnection() =
     let config = Config.load()
     let connectionString = Config.buildConnectionString config
     
+    interface System.IDisposable with
+        member this.Dispose() =
+            () 
+            
     member this.GetOpenConnection() =
         let conn = new NpgsqlConnection(connectionString)
         conn.Open()

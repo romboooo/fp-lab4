@@ -3,25 +3,24 @@ module ORM.TypeGenerator
 open System
 open System.IO
 open ORM.Schema
-open ORM.SqlParser
+open ORM  // Добавляем для доступа к PrimaryKeyAttribute
 
 module CodeGenerator =
     let toPascalCase (name: string) =
         name.Split('_')
         |> Array.map (fun part -> 
             if String.IsNullOrEmpty(part) then ""
-            else part.[0].ToString().ToUpper() + part.Substring(1).ToLower())
+            else Char.ToUpper(part.[0]).ToString() + part.Substring(1).ToLower())
         |> String.concat ""
 
     let toCamelCase (name: string) =
         let parts = name.Split('_', StringSplitOptions.RemoveEmptyEntries)
         match parts with
         | [||] -> name
-        | [|first|] -> first.ToLower()
         | _ ->
             let first = parts.[0].ToLower()
             let rest = parts.[1..] |> Array.map (fun s -> 
-                s.[0].ToString().ToUpper() + s.Substring(1).ToLower())
+                Char.ToUpper(s.[0]).ToString() + s.Substring(1).ToLower())
             first + String.concat "" rest
 
     let pgTypeToFSharpType (column: ColumnInfo) =
@@ -32,11 +31,12 @@ module CodeGenerator =
             | Varchar _ | Text | Json -> "string"
             | Boolean -> "bool"
             | Date -> "System.DateTime"
+            | Float -> if column.IsNullable then "float option" else "float"
         
-        match baseType with
-        | "string" -> baseType
-        | _ when column.IsNullable -> baseType + " option"
-        | _ -> baseType
+        if column.IsNullable then
+            baseType + " option"
+        else
+            baseType
 
     let generateRecordType (table: TableInfo) =
         let typeName = toPascalCase table.Name
@@ -52,26 +52,18 @@ module CodeGenerator =
                     sprintf "    %s: %s" fieldName fieldType)
             |> String.concat "\n"
         
-        let lines = [
-            sprintf "type %s = {" typeName
-            fields
-            "}"
-        ]
-        String.concat "\n" lines
+        sprintf "type %s = {\n%s\n}" typeName fields
 
     let generateAllTypes (tables: TableInfo list) =
         let headerLines = [
             "// AUTO-GENERATED FILE - DO NOT EDIT"
-            "// Generated at: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+            sprintf "// Generated at: %s" (DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"))
             "// Generated from database schema"
             ""
             "namespace ORM.GeneratedTypes"
             ""
             "open System"
-            ""
-            "[<AttributeUsage(AttributeTargets.Property)>]"
-            "type PrimaryKeyAttribute() ="
-            "    inherit Attribute()"
+            "open ORM"  // Добавляем для доступа к PrimaryKeyAttribute
             ""
         ]
         
@@ -85,7 +77,7 @@ module CodeGenerator =
 module Generator =
     let generateTypes () =
         try
-            let tables = Parser.parseDatabaseSchema()
+            let tables = ORM.SqlParser.Parser.parseDatabaseSchema()
             let generatedCode = CodeGenerator.generateAllTypes tables
             
             let generatedDir = "generated"
@@ -105,7 +97,7 @@ module Generator =
         let validations = [
             ("namespace ORM.GeneratedTypes", "Missing namespace")
             ("type ", "No types generated")
-            ("PrimaryKeyAttribute", "Missing PrimaryKey attribute definition")
+            ("[<PrimaryKey>]", "PrimaryKey attribute not found in generated code")
         ]
         
         let errors =

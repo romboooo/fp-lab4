@@ -1,4 +1,3 @@
-// src/SqlParser.fs
 module ORM.SqlParser
 
 open System
@@ -18,11 +17,12 @@ module SchemaReader =
         | "json" | "jsonb" -> Json
         | "date" -> Date
         | "timestamp" | "timestamp without time zone" -> Date
+        | "real" | "float4" -> Float
         | "numeric" | "decimal" -> Int
         | _ -> 
             printfn "Warning: Unknown type %s, mapping to Text" dataType
             Text
-    
+            
     let getTables (connection: NpgsqlConnection) =
         let query = """
             SELECT table_schema, table_name
@@ -134,7 +134,7 @@ module SchemaReader =
 
 module Parser =
     let parseDatabaseSchema() : TableInfo list =
-        let db = DatabaseConnection()
+        let db = new DatabaseConnection()
         SchemaReader.getAllTablesInfo db
     
     let formatColumnType (col: ColumnInfo) : string =
@@ -149,6 +149,8 @@ module Parser =
         | Boolean -> "BOOLEAN"
         | Json -> "JSON"
         | Date -> "DATE"
+        | Float -> "FLOAT"
+
     
     let printDatabaseSchema() =
         let tables = parseDatabaseSchema()
