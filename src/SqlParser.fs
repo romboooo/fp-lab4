@@ -17,43 +17,55 @@ module SchemaReader =
     /// <returns>Соответствующий ColumnType</returns>
     let private mapDataType (dataType: string) (characterMaxLength: int option) =
         match dataType.ToLower() with
-        | "integer" | "int" | "int4" -> Int
-        | "bigint" | "int8" -> BigInt
-        | "character varying" | "varchar" -> Varchar characterMaxLength
+        | "integer"
+        | "int"
+        | "int4" -> Int
+        | "bigint"
+        | "int8" -> BigInt
+        | "character varying"
+        | "varchar" -> Varchar characterMaxLength
         | "text" -> Text
-        | "boolean" | "bool" -> Boolean
-        | "json" | "jsonb" -> Json
+        | "boolean"
+        | "bool" -> Boolean
+        | "json"
+        | "jsonb" -> Json
         | "date" -> Date
-        | "timestamp" | "timestamp without time zone" -> Date
-        | "real" | "float4" -> Float
-        | "numeric" | "decimal" -> Int
-        | _ -> 
+        | "timestamp"
+        | "timestamp without time zone" -> Date
+        | "real"
+        | "float4" -> Float
+        | "numeric"
+        | "decimal" -> Int
+        | _ ->
             printfn "Warning: Unknown type %s, mapping to Text" dataType
             Text
-            
+
     /// <summary>
     /// Получает список таблиц из схемы базы данных
     /// </summary>
     /// <param name="connection">Подключение к базе данных</param>
     /// <returns>Список пар (схема, имя таблицы)</returns>
     let getTables (connection: NpgsqlConnection) =
-        let query = """
+        let query =
+            """
             SELECT table_schema, table_name
             FROM information_schema.tables
             WHERE table_schema = 'public'
               AND table_type = 'BASE TABLE'
             ORDER BY table_name
         """
-        
+
         use cmd = new NpgsqlCommand(query, connection)
         use reader = cmd.ExecuteReader()
-        
+
         let tables = ResizeArray<string * string>()
+
         while reader.Read() do
             tables.Add(reader.GetString(0), reader.GetString(1))
-        
+
         reader.Close()
         tables |> Seq.toList
+
     /// <summary>
     /// Получает информацию о столбцах таблицы
     /// </summary>
@@ -62,7 +74,8 @@ module SchemaReader =
     /// <param name="tableName">Имя таблицы</param>
     /// <returns>Список ColumnInfo для таблицы</returns>
     let getColumns (connection: NpgsqlConnection) (schema: string) (tableName: string) =
-        let query = """
+        let query =
+            """
             SELECT 
                 column_name,
                 data_type,
@@ -74,32 +87,38 @@ module SchemaReader =
               AND table_name = @tableName
             ORDER BY ordinal_position
         """
-        
+
         use cmd = new NpgsqlCommand(query, connection)
         cmd.Parameters.AddWithValue("@schema", schema) |> ignore
         cmd.Parameters.AddWithValue("@tableName", tableName) |> ignore
-        
+
         use reader = cmd.ExecuteReader()
         let columns = ResizeArray<ColumnInfo>()
-        
+
         while reader.Read() do
             let columnName = reader.GetString(0)
             let dataType = reader.GetString(1)
-            let charMaxLength = if reader.IsDBNull(2) then None else Some (reader.GetInt32(2))
+
+            let charMaxLength =
+                if reader.IsDBNull(2) then
+                    None
+                else
+                    Some(reader.GetInt32(2))
+
             let isNullable = reader.GetString(3) = "YES"
-            
-            let columnInfo = {
-                Name = columnName
-                DataType = mapDataType dataType charMaxLength
-                IsNullable = isNullable
-                IsPrimaryKey = false 
-                MaxLength = charMaxLength
-            }
-            
+
+            let columnInfo =
+                { Name = columnName
+                  DataType = mapDataType dataType charMaxLength
+                  IsNullable = isNullable
+                  IsPrimaryKey = false
+                  MaxLength = charMaxLength }
+
             columns.Add(columnInfo)
-        
+
         reader.Close()
         columns |> Seq.toList
+
     /// <summary>
     /// Получает список первичных ключей таблицы
     /// </summary>
@@ -108,7 +127,8 @@ module SchemaReader =
     /// <param name="tableName">Имя таблицы</param>
     /// <returns>Список имен столбцов первичного ключа</returns>
     let getPrimaryKeys (connection: NpgsqlConnection) (schema: string) (tableName: string) =
-        let query = """
+        let query =
+            """
             SELECT kcu.column_name
             FROM information_schema.table_constraints tc
             JOIN information_schema.key_column_usage kcu
@@ -119,19 +139,20 @@ module SchemaReader =
                 AND tc.table_name = @tableName
             ORDER BY kcu.ordinal_position
         """
-        
+
         use cmd = new NpgsqlCommand(query, connection)
         cmd.Parameters.AddWithValue("@schema", schema) |> ignore
         cmd.Parameters.AddWithValue("@tableName", tableName) |> ignore
-        
+
         use reader = cmd.ExecuteReader()
         let primaryKeys = ResizeArray<string>()
-        
+
         while reader.Read() do
             primaryKeys.Add(reader.GetString(0))
-        
+
         reader.Close()
         primaryKeys |> Seq.toList
+
     /// <summary>
     /// Получает полную информацию о таблице
     /// </summary>
@@ -142,17 +163,17 @@ module SchemaReader =
     let getTableInfo (connection: NpgsqlConnection) (schema: string) (tableName: string) : TableInfo =
         let columns = getColumns connection schema tableName
         let primaryKeys = getPrimaryKeys connection schema tableName |> Set.ofSeq
-        
+
         let columnsWithPK =
             columns
             |> List.map (fun col ->
-                { col with IsPrimaryKey = Set.contains col.Name primaryKeys })
-        
-        {
-            Schema = schema
-            Name = tableName
-            Columns = columnsWithPK
-        }
+                { col with
+                    IsPrimaryKey = Set.contains col.Name primaryKeys })
+
+        { Schema = schema
+          Name = tableName
+          Columns = columnsWithPK }
+
     /// <summary>
     /// Получает информацию обо всех таблицах в базе данных
     /// </summary>
@@ -161,10 +182,9 @@ module SchemaReader =
     let getAllTablesInfo (dbConnection: DatabaseConnection) : TableInfo list =
         use conn = dbConnection.GetOpenConnection()
         let tables = getTables conn
-        
+
         tables
-        |> List.map (fun (schema, tableName) -> 
-            getTableInfo conn schema tableName)
+        |> List.map (fun (schema, tableName) -> getTableInfo conn schema tableName)
 
 /// <summary>
 /// Модуль для парсинга и анализа схемы базы данных
@@ -174,9 +194,10 @@ module Parser =
     /// Парсит схему базы данных и возвращает информацию о таблицах
     /// </summary>
     /// <returns>Список TableInfo для всех таблиц в схеме 'public'</returns>
-    let parseDatabaseSchema() : TableInfo list =
+    let parseDatabaseSchema () : TableInfo list =
         let db = new DatabaseConnection()
         SchemaReader.getAllTablesInfo db
+
     /// <summary>
     /// Форматирует тип столбца для вывода
     /// </summary>
@@ -186,7 +207,7 @@ module Parser =
         match col.DataType with
         | Int -> "INT"
         | BigInt -> "BIGINT"
-        | Varchar maxLen -> 
+        | Varchar maxLen ->
             match maxLen with
             | Some len -> sprintf "VARCHAR(%d)" len
             | None -> "VARCHAR"
@@ -199,43 +220,45 @@ module Parser =
     /// <summary>
     /// Выводит схему базы данных в консоль
     /// </summary>
-    let printDatabaseSchema() =
-        let tables = parseDatabaseSchema()
-        
+    let printDatabaseSchema () =
+        let tables = parseDatabaseSchema ()
+
         for table in tables do
             printfn " Table: %s.%s " table.Schema table.Name
             printfn "Columns:"
             printfn "--------------------------------------------------"
             printfn "%-20s %-20s %-10s %s" "Name" "Type" "Nullable" "PK"
             printfn "--------------------------------------------------"
-            
+
             for col in table.Columns do
                 let nullable = if col.IsNullable then "YES" else "NO"
                 let pk = if col.IsPrimaryKey then "PK" else ""
-                printfn "%-20s %-20s %-10s %s" 
-                    col.Name 
-                    (formatColumnType col)
-                    nullable
-                    pk
-            
+                printfn "%-20s %-20s %-10s %s" col.Name (formatColumnType col) nullable pk
+
             printfn ""
+
     /// <summary>
     /// Генерирует краткую сводку о схеме базы данных
     /// </summary>
-    let generateSchemaSummary() =
-        let tables = parseDatabaseSchema()
-        
+    let generateSchemaSummary () =
+        let tables = parseDatabaseSchema ()
+
         let totalColumns = tables |> List.sumBy (fun t -> t.Columns.Length)
-        
+
         printfn "Tables: %d" tables.Length
         printfn "Total columns: %d" totalColumns
         printfn ""
-        
+
         for table in tables do
-            let pkColumns = 
-                table.Columns 
-                |> List.filter (fun c -> c.IsPrimaryKey) 
+            let pkColumns =
+                table.Columns
+                |> List.filter (fun c -> c.IsPrimaryKey)
                 |> List.map (fun c -> c.Name)
-            let pk = if pkColumns.IsEmpty then "No PK" 
-                     else sprintf "PK: %s" (String.Join(", ", pkColumns))
+
+            let pk =
+                if pkColumns.IsEmpty then
+                    "No PK"
+                else
+                    sprintf "PK: %s" (String.Join(", ", pkColumns))
+
             printfn "%-20s: %d columns, %s" table.Name table.Columns.Length pk
