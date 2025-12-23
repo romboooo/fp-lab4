@@ -4,7 +4,7 @@
     <TargetFramework>net9.0</TargetFramework>
   </PropertyGroup>
 
- <ItemGroup>
+  <ItemGroup>
     <Compile Include="src/Database.fs" />
     <Compile Include="src/Schema.fs" />
     <Compile Include="src/PrimaryKeyAttribute.fs" />
@@ -24,7 +24,7 @@
     <PackageReference Include="Npgsql" Version="8.0.4" />
   </ItemGroup>
 
-<Target Name="EnsureGeneratedTypesExists" BeforeTargets="BeforeBuild">
+  <Target Name="EnsureGeneratedTypesExists" BeforeTargets="BeforeBuild">
     <Message Text="Checking for generated types file..." Importance="normal" />
     
     <PropertyGroup>
@@ -33,23 +33,29 @@
     
     <MakeDir Directories="generated" Condition="!Exists('generated')" />
     
-    <!-- Создаем ПРАВИЛЬНЫЙ файл с namespace, если его нет -->
     <WriteLinesToFile 
       File="$(GeneratedTypesPath)" 
       Lines="namespace ORM.GeneratedTypes&#xA;&#xA;open System&#xA;open ORM&#xA;&#xA;// This file will be auto-generated when you run: dotnet run -- --generate-types"
       Overwrite="false" 
       Condition="!Exists('$(GeneratedTypesPath)')" />
     
-    <Message Text="Generated types file exists or was created: $(GeneratedTypesPath)" Condition="Exists('$(GeneratedTypesPath)')" />
-</Target>
+    <Message 
+      Text="Generated types file exists or was created: $(GeneratedTypesPath)" 
+      Condition="Exists('$(GeneratedTypesPath)')" />
+  </Target>
 
   <Target Name="RegenerateTypes">
     <Message Text="Forcing type regeneration..." Importance="high" />
-    <Exec Command="dotnet run -- --generate-types" WorkingDirectory="$(MSBuildProjectDirectory)" IgnoreExitCode="false" />
+    <Exec 
+      Command="dotnet run -- --generate-types" 
+      WorkingDirectory="$(MSBuildProjectDirectory)" 
+      IgnoreExitCode="false" />
   </Target>
 
   <Target Name="CleanGeneratedTypes" AfterTargets="Clean">
-    <Delete Files="generated/GeneratedTypes.fs" Condition="Exists('generated/GeneratedTypes.fs')" />
+    <Delete 
+      Files="generated/GeneratedTypes.fs" 
+      Condition="Exists('generated/GeneratedTypes.fs')" />
     <Message Text="Cleaned generated types file" Importance="high" />
   </Target>
 </Project>
