@@ -5,8 +5,16 @@ open Npgsql
 open ORM.Database
 open ORM.Schema
 
+/// <summary>
+/// Модуль для чтения схемы базы данных
+/// </summary>
 module SchemaReader =
-    
+    /// <summary>
+    /// Преобразует строковый тип PostgreSQL во внутренний тип ColumnType
+    /// </summary>
+    /// <param name="dataType">Тип данных PostgreSQL</param>
+    /// <param name="characterMaxLength">Максимальная длина для строковых типов</param>
+    /// <returns>Соответствующий ColumnType</returns>
     let private mapDataType (dataType: string) (characterMaxLength: int option) =
         match dataType.ToLower() with
         | "integer" | "int" | "int4" -> Int
@@ -23,6 +31,11 @@ module SchemaReader =
             printfn "Warning: Unknown type %s, mapping to Text" dataType
             Text
             
+    /// <summary>
+    /// Получает список таблиц из схемы базы данных
+    /// </summary>
+    /// <param name="connection">Подключение к базе данных</param>
+    /// <returns>Список пар (схема, имя таблицы)</returns>
     let getTables (connection: NpgsqlConnection) =
         let query = """
             SELECT table_schema, table_name
@@ -41,7 +54,13 @@ module SchemaReader =
         
         reader.Close()
         tables |> Seq.toList
-    
+    /// <summary>
+    /// Получает информацию о столбцах таблицы
+    /// </summary>
+    /// <param name="connection">Подключение к базе данных</param>
+    /// <param name="schema">Схема таблицы</param>
+    /// <param name="tableName">Имя таблицы</param>
+    /// <returns>Список ColumnInfo для таблицы</returns>
     let getColumns (connection: NpgsqlConnection) (schema: string) (tableName: string) =
         let query = """
             SELECT 
@@ -81,7 +100,13 @@ module SchemaReader =
         
         reader.Close()
         columns |> Seq.toList
-    
+    /// <summary>
+    /// Получает список первичных ключей таблицы
+    /// </summary>
+    /// <param name="connection">Подключение к базе данных</param>
+    /// <param name="schema">Схема таблицы</param>
+    /// <param name="tableName">Имя таблицы</param>
+    /// <returns>Список имен столбцов первичного ключа</returns>
     let getPrimaryKeys (connection: NpgsqlConnection) (schema: string) (tableName: string) =
         let query = """
             SELECT kcu.column_name
@@ -107,7 +132,13 @@ module SchemaReader =
         
         reader.Close()
         primaryKeys |> Seq.toList
-    
+    /// <summary>
+    /// Получает полную информацию о таблице
+    /// </summary>
+    /// <param name="connection">Подключение к базе данных</param>
+    /// <param name="schema">Схема таблицы</param>
+    /// <param name="tableName">Имя таблицы</param>
+    /// <returns>TableInfo с информацией о таблице и ее столбцах</returns>
     let getTableInfo (connection: NpgsqlConnection) (schema: string) (tableName: string) : TableInfo =
         let columns = getColumns connection schema tableName
         let primaryKeys = getPrimaryKeys connection schema tableName |> Set.ofSeq
@@ -122,7 +153,11 @@ module SchemaReader =
             Name = tableName
             Columns = columnsWithPK
         }
-    
+    /// <summary>
+    /// Получает информацию обо всех таблицах в базе данных
+    /// </summary>
+    /// <param name="dbConnection">Подключение к базе данных</param>
+    /// <returns>Список TableInfo для всех таблиц</returns>
     let getAllTablesInfo (dbConnection: DatabaseConnection) : TableInfo list =
         use conn = dbConnection.GetOpenConnection()
         let tables = getTables conn
@@ -131,11 +166,22 @@ module SchemaReader =
         |> List.map (fun (schema, tableName) -> 
             getTableInfo conn schema tableName)
 
+/// <summary>
+/// Модуль для парсинга и анализа схемы базы данных
+/// </summary>
 module Parser =
+    /// <summary>
+    /// Парсит схему базы данных и возвращает информацию о таблицах
+    /// </summary>
+    /// <returns>Список TableInfo для всех таблиц в схеме 'public'</returns>
     let parseDatabaseSchema() : TableInfo list =
         let db = new DatabaseConnection()
         SchemaReader.getAllTablesInfo db
-    
+    /// <summary>
+    /// Форматирует тип столбца для вывода
+    /// </summary>
+    /// <param name="col">Информация о столбце</param>
+    /// <returns>Строковое представление типа SQL</returns>
     let formatColumnType (col: ColumnInfo) : string =
         match col.DataType with
         | Int -> "INT"
@@ -150,12 +196,14 @@ module Parser =
         | Date -> "DATE"
         | Float -> "FLOAT"
 
-    
+    /// <summary>
+    /// Выводит схему базы данных в консоль
+    /// </summary>
     let printDatabaseSchema() =
         let tables = parseDatabaseSchema()
         
         for table in tables do
-            printfn "=== Table: %s.%s ===" table.Schema table.Name
+            printfn " Table: %s.%s " table.Schema table.Name
             printfn "Columns:"
             printfn "--------------------------------------------------"
             printfn "%-20s %-20s %-10s %s" "Name" "Type" "Nullable" "PK"
@@ -171,7 +219,9 @@ module Parser =
                     pk
             
             printfn ""
-    
+    /// <summary>
+    /// Генерирует краткую сводку о схеме базы данных
+    /// </summary>
     let generateSchemaSummary() =
         let tables = parseDatabaseSchema()
         

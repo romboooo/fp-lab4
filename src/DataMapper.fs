@@ -4,8 +4,15 @@ open System
 open System.Data.Common
 open Microsoft.FSharp.Reflection
 open ORM  
-
+/// <summary>
+/// Модуль для работы с опциональными типами
+/// </summary>
 module OptionConverter =
+    /// <summary>
+    /// Пытается распаковать значение из Option типа
+    /// </summary>
+    /// <param name="value">Значение для распаковки</param>
+    /// <returns>Some с внутренним значением или None</returns>
     let tryUnboxOption (value: obj) : obj option =
         if value = null || value = DBNull.Value then
             None
@@ -18,7 +25,12 @@ module OptionConverter =
                 else None
             else
                 Some value
-
+    /// <summary>
+    /// Создает значение Option типа из внутреннего значения
+    /// </summary>
+    /// <param name="innerType">Тип внутреннего значения</param>
+    /// <param name="value">Значение для обертывания</param>
+    /// <returns>Значение Option типа</returns>
     let createOption (innerType: Type) (value: obj) : obj =
         if value = null || value = DBNull.Value then
             let noneCase = FSharpType.GetUnionCases(typedefof<option<_>>.MakeGenericType(innerType))
@@ -28,8 +40,16 @@ module OptionConverter =
             let someCase = FSharpType.GetUnionCases(typedefof<option<_>>.MakeGenericType(innerType))
                             |> Array.find (fun c -> c.Name = "Some")
             FSharpValue.MakeUnion(someCase, [|value|])
-
+/// <summary>
+/// Модуль для преобразования типов значений
+/// </summary>
 module TypeConverter =
+    /// <summary>
+    /// Преобразует значение к целевому типу
+    /// </summary>
+    /// <param name="targetType">Целевой тип</param>
+    /// <param name="value">Значение для преобразования</param>
+    /// <returns>Преобразованное значение</returns>
      let convertValue (targetType: Type) (value: obj) : obj =
         if value = null || value = DBNull.Value then
             null
@@ -91,6 +111,12 @@ module TypeConverter =
                 printfn "Warning: Failed to convert value %A to type %s: %s" value targetType.Name ex.Message
                 value
 
+/// <summary>
+/// Преобразует DataReader в список записей F#
+/// </summary>
+/// <param name="reader">DataReader с результатами запроса</param>
+/// <returns>Список записей типа 'T</returns>
+/// <exception cref="System.Exception">Выбрасывается если тип не является записью F#</exception>
 let mapDataReaderToRecords<'T> (reader: DbDataReader) : 'T list =
     let results = ResizeArray<'T>()
     
@@ -188,17 +214,28 @@ let mapDataReaderToRecords<'T> (reader: DbDataReader) : 'T list =
                 reraise()
     
     results |> Seq.toList
-
+/// <summary>
+/// Модуль для преобразования записей в параметры запросов
+/// </summary>
 module RecordConverter =
     open System.Reflection
-    
+    /// <summary>
+    /// Получает свойство первичного ключа записи
+    /// </summary>
+    /// <returns>Опциональное свойство с атрибутом PrimaryKeyAttribute</returns>
     let getPrimaryKeyProperty<'T> () =
         typeof<'T>.GetProperties()
         |> Array.tryFind (fun prop -> 
             prop.GetCustomAttributes(typeof<PrimaryKeyAttribute>, true)
             |> Array.isEmpty
             |> not)  
-    
+            
+    /// <summary>
+    /// Преобразует запись в список параметров для запроса
+    /// </summary>
+    /// <param name="record">Запись для преобразования</param>
+    /// <param name="includePrimaryKey">Включать ли первичный ключ в результат</param>
+    /// <returns>Список пар (имя столбца в snake_case, значение)</returns>
     let recordToParameterList (record: 'T) (includePrimaryKey: bool) : (string * obj) list =
         let properties = typeof<'T>.GetProperties()
         

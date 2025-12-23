@@ -1,4 +1,3 @@
-// src/Database.fs
 module ORM.Database
 
 open Npgsql
@@ -6,6 +5,9 @@ open System
 open System.Data.Common
 open dotenv.net
 
+/// <summary>
+/// Конфигурация подключения к PostgreSQL
+/// </summary>
 type ConnectionConfig = {
     Host: string
     Port: int
@@ -13,8 +15,16 @@ type ConnectionConfig = {
     Username: string
     Password: string
 }
-
+/// <summary>
+/// Модуль для работы с конфигурацией подключения
+/// </summary>
 module Config =
+
+    /// <summary>
+    /// Загружает конфигурацию из переменных окружения
+    /// </summary>
+    /// <returns>Конфигурация подключения</returns>
+    /// <exception cref="System.Exception">Выбрасывается если переменные окружения не установлены</exception>
     let load() =
         DotEnv.Load()
 
@@ -42,11 +52,20 @@ module Config =
             Username = username
             Password = password
         }
-    
+    /// <summary>
+    /// Строит строку подключения из конфигурации
+    /// </summary>
+    /// <param name="config">Конфигурация подключения</param>
+    /// <returns>Строка подключения PostgreSQL</returns>
     let buildConnectionString (config: ConnectionConfig) =
         sprintf "Host=%s;Port=%d;Database=%s;Username=%s;Password=%s;Include Error Detail=true" 
             config.Host config.Port config.Database config.Username config.Password
-
+/// <summary>
+/// Основной тип для работы с подключением к базе данных
+/// </summary>
+/// <remarks>
+/// Предоставляет методы для выполнения SQL-запросов и управления подключением
+/// </remarks>
 type DatabaseConnection() =
     let config = Config.load()
     let connectionString = Config.buildConnectionString config
@@ -54,12 +73,20 @@ type DatabaseConnection() =
     interface System.IDisposable with
         member this.Dispose() =
             () 
-            
+
+    /// <summary>
+    /// Создает и открывает новое подключение к базе данных
+    /// </summary>
+    /// <returns>Открытое подключение NpgsqlConnection</returns>
     member this.GetOpenConnection() =
         let conn = new NpgsqlConnection(connectionString)
         conn.Open()
         conn
     
+    /// <summary>
+    /// Выполняет SQL-запрос и выводит результаты в консоль
+    /// </summary>
+    /// <param name="sql">SQL-запрос для выполнения</param>
     member this.ExecuteQuery (sql: string) =
         use conn = this.GetOpenConnection()
         use cmd = new NpgsqlCommand(sql, conn)
@@ -75,26 +102,50 @@ type DatabaseConnection() =
             printfn ""
         
         printfn "Query executed successfully"
-    
+
+    /// <summary>
+    /// Выполняет SQL-запрос без возврата результата (INSERT, UPDATE, DELETE)
+    /// </summary>
+    /// <param name="sql">SQL-запрос для выполнения</param>
+    /// <param name="parameters">Список параметров запроса</param>
+    /// <returns>Количество затронутых строк</returns>
     member this.ExecuteNonQuery(sql: string, parameters: NpgsqlParameter list) =
         use conn = this.GetOpenConnection()
         use cmd = new NpgsqlCommand(sql, conn)
         cmd.Parameters.AddRange(parameters |> List.toArray)
         cmd.ExecuteNonQuery()
 
+    /// <summary>
+    /// Выполняет SQL-запрос и возвращает скалярное значение
+    /// </summary>
+    /// <param name="sql">SQL-запрос для выполнения</param>
+    /// <param name="parameters">Список параметров запроса</param>
+    /// <returns>Скалярное значение результата</returns>
     member this.ExecuteScalar(sql: string, parameters: NpgsqlParameter list) =
         use conn = this.GetOpenConnection()
         use cmd = new NpgsqlCommand(sql, conn)
         cmd.Parameters.AddRange(parameters |> List.toArray)
         cmd.ExecuteScalar()
 
+    /// <summary>
+    /// Выполняет SQL-запрос с обработкой результата через функцию
+    /// </summary>
+    /// <param name="sql">SQL-запрос для выполнения</param>
+    /// <param name="parameters">Список параметров запроса</param>
+    /// <param name="action">Функция для обработки DataReader</param>
+    /// <returns>Результат обработки функцией action</returns>
     member this.ExecuteReaderAction(sql: string, parameters: NpgsqlParameter list, action: DbDataReader -> 'T) =
         use conn = this.GetOpenConnection()
         use cmd = new NpgsqlCommand(sql, conn)
         cmd.Parameters.AddRange(parameters |> List.toArray)
         use reader = cmd.ExecuteReader()
         action reader
-
+        
+    /// <summary>
+    /// Выполняет операции в транзакции
+    /// </summary>
+    /// <param name="action">Действие для выполнения в транзакции</param>
+    /// <returns>Результат действия или ошибку</returns>
     member this.WithTransaction (action: NpgsqlConnection -> 'T) =
         use conn = this.GetOpenConnection()
         use transaction = conn.BeginTransaction()
