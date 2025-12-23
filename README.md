@@ -27,7 +27,7 @@ dotnet build
 Пользуемся предоставленными методами библиотеки (пример)
 
 ```f#
-
+use db = new DatabaseConnection()
 let productsTable = db.Table<Products>("products")
 let productId = 5
 CRUD.update productsTable productId ["price", box 7999]
