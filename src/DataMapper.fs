@@ -1,4 +1,3 @@
-// DataMapper.fs - исправленная версия
 module ORM.DataMapper
 
 open System
@@ -53,12 +52,10 @@ module TypeConverter =
                     match value with
                     | :? decimal -> value
                     | :? double as d -> Convert.ToDecimal(d) |> box
-                    | :? float as f -> Convert.ToDecimal(f) |> box
                     | _ -> Convert.ToDecimal(value) |> box
                 | t when t = typeof<float> -> 
                     match value with
                     | :? float -> value
-                    | :? double as d -> Convert.ToDouble(d) |> box
                     | :? decimal as dec -> Convert.ToDouble(dec) |> box
                     | _ -> Convert.ToDouble(value) |> box
                 | t when t = typeof<bool> -> 
@@ -143,7 +140,6 @@ let mapDataReaderToRecords<'T> (reader: DbDataReader) : 'T list =
                             
                             convertedValue
                     | None ->
-                        // Проверяем, есть ли колонка с подчеркиваниями (snake_case)
                         let snakeCaseName = 
                             System.Text.RegularExpressions.Regex.Replace(
                                 prop.Name, 
@@ -232,7 +228,6 @@ module RecordConverter =
                     else
                         value
                 
-                // Конвертируем имена свойств из CamelCase в snake_case
                 let columnName = 
                     System.Text.RegularExpressions.Regex.Replace(
                         prop.Name, 

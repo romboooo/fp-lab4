@@ -33,10 +33,10 @@ module QueryBuilderTests =
         let (sql, parameters) = SqlGenerator.generate query
         
         Assert.Contains("SELECT * FROM users WHERE age = @p0", sql)
-        Assert.Single(parameters)
+        Assert.Single(parameters) |> ignore
         Assert.Equal("p0", parameters.[0].ParameterName)
         Assert.Equal(25, parameters.[0].Value :?> int)
-        ignore parameters // Добавить эту строку
+        ignore parameters 
 
     [<Fact>]
     let ``Insert query should generate correct SQL`` () =
@@ -74,7 +74,7 @@ module QueryBuilderTests =
         
         let (sql, parameters) = SqlGenerator.generate query
         Assert.Contains("DELETE FROM users WHERE age > @p0", sql)
-        Assert.Single(parameters)
+        Assert.Single(parameters) |> ignore
         Assert.Equal(100, parameters.[0].Value :?> int)
 
     [<Fact>]

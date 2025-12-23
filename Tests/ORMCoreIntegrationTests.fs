@@ -65,7 +65,7 @@ module ORMCoreIntegrationTests =
                                 
                                 match CRUD.findById usersTable newId with
                                 | Ok None -> 
-                                    Assert.True(true) // Success!
+                                    Assert.True(true) 
                                 | Ok (Some _) -> 
                                     Assert.True(false, "Record still exists after delete")
                                 | Error err -> 

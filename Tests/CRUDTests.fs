@@ -85,12 +85,12 @@ module CRUDTests =
             Assert.True(false, "Validation should have failed for null required field")
         | Error err -> 
             Assert.Contains("Required field 'Name' cannot be null", err)
-            () // Возвращаем unit
+            ()
 
     [<Fact>]
     let ``TypeSafeHelpers.validateRecord should fail for null primary key`` () =
         let record = {
-            Id = 0  // Value type, can't be null
+            Id = 0 
             Name = "Test"
             Age = Some 30
             Email = "test@example.com"
@@ -100,10 +100,9 @@ module CRUDTests =
         
         match result with
         | Ok _ -> 
-            Assert.True(true) // Value types can't be null
+            Assert.True(true) 
         | Error err -> 
             printfn $"Validation error: {err}"
-            // This might fail depending on implementation
             Assert.True(true)
 
     [<Fact>]
@@ -147,5 +146,5 @@ module CRUDTests =
         
         let values = TypeSafeHelpers.toUpdateValues record ["Name"; "NonExistentField"]
         
-        Assert.Single(values)
+        Assert.Single(values) |> ignore
         Assert.Contains(("name", box "Test"), values)
