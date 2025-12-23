@@ -365,19 +365,24 @@ module SqlGenerator =
 [<AutoOpen>]
 module TypeSafeHelpers =
     open Microsoft.FSharp.Reflection
-    open ORM  // Для доступа к PrimaryKeyAttribute
+    open ORM
     
     let private isOptionType (typ: System.Type) =
         typ.IsGenericType && typ.GetGenericTypeDefinition() = typedefof<option<_>>
     
-    let private getValueFromOption (value: obj) =
-        let typ = value.GetType()
-        if isOptionType typ then
-            let valueProperty = typ.GetProperty("Value")
-            if valueProperty = null then null
-            else valueProperty.GetValue(value)
+    let private getValueFromOption (value: obj) : obj =
+        if value = null then null
         else
-            value
+            let typ = value.GetType()
+            if isOptionType typ then
+                let cases = FSharpType.GetUnionCases(typ)
+                let case, fields = FSharpValue.GetUnionFields(value, typ)
+                if case.Name = "Some" then
+                    fields.[0] 
+                else
+                    null
+            else
+                value
     
     let toInsertValues (record: 'T) : (string * obj) list =
         let recordType = typeof<'T>
@@ -389,13 +394,11 @@ module TypeSafeHelpers =
             let value = FSharpValue.GetRecordField(record, prop)
             let propName = prop.Name
             
-            // Обработка option типов
             let dbValue = 
                 if isOptionType prop.PropertyType then
-                    if value = null || (value :?> Option<_>).IsNone then
-                        box DBNull.Value
-                    else
-                        getValueFromOption value |> box
+                    match getValueFromOption value with
+                    | null -> box DBNull.Value
+                    | v -> v
                 elif value = null then
                     box DBNull.Value
                 else
@@ -419,10 +422,9 @@ module TypeSafeHelpers =
             
             let dbValue = 
                 if isOptionType prop.PropertyType then
-                    if value = null || (value :?> Option<_>).IsNone then
-                        box DBNull.Value
-                    else
-                        getValueFromOption value |> box
+                    match getValueFromOption value with
+                    | null -> box DBNull.Value
+                    | v -> v
                 elif value = null then
                     box DBNull.Value
                 else
@@ -430,6 +432,7 @@ module TypeSafeHelpers =
             
             (propName.ToLower(), dbValue))
         |> Array.toList
+    
     
     let validateRecord (record: 'T) (tableName: string) =
         try
@@ -442,7 +445,6 @@ module TypeSafeHelpers =
                 
                 let errors = ResizeArray<string>()
                 
-                // Проверяем первичные ключи
                 let primaryKeyProps = 
                     properties
                     |> Array.filter (fun prop -> 
@@ -453,7 +455,6 @@ module TypeSafeHelpers =
                     if value = null then
                         errors.Add(sprintf "Primary key field '%s' cannot be null" pkProp.Name)
                 
-                // Проверяем обязательные поля (не nullable)
                 for prop in properties do
                     let isOption = isOptionType prop.PropertyType
                     let isPrimaryKey = prop.GetCustomAttributes(typeof<PrimaryKeyAttribute>, false).Length > 0
