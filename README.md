@@ -27,6 +27,9 @@ dotnet build
 Пользуемся предоставленными методами библиотеки (пример)
 
 ```f#
+open ORM.Database
+open ORM.ORMCore
+open ORM.GeneratedTypes
 use db = new DatabaseConnection()
 let productsTable = db.Table<Products>("products")
 let productId = 5
