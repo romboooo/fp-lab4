@@ -8,7 +8,7 @@
 5. src/core/ORMCore.fs - высокоуровневый API для CRUD операций
 6. src/DataMapper.fs - маппинг f# типов -> sql типы и наоборот
 
-## Пример использования
+## Как использовать?
 
 Билдим проект
 ```sh
@@ -18,12 +18,50 @@ dotnet clean; dotnet build;
 ```sh
 dotnet run -- --generate-types
 ```
-Запуск
+Билдим полученные типы из бд как часть приложения 
 
 ```sh
-dotnet run //WIP
+dotnet build 
 ```
 
+Пользуемся предоставленными методами библиотеки (пример)
+
+```f#
+
+let productsTable = db.Table<Products>("products")
+let productId = 5
+CRUD.update productsTable productId ["price", box 7999]
+let usersTable = db.Table<Users>("users")
+CRUD.insert usersTable [
+            "username", box testUsername
+            "email", box testEmail
+            "age", box 25
+        ] 
+```
+
+
+## Docker-файл (postgres)
+
+``` yml
+services:
+  postgres:
+    image: postgres:16.6
+    shm_size: 128mb
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    env_file:
+      - .env
+
+volumes:
+  postgres-data:
+```
 ## конфигурация .env файла (необходимо поместить в корень проекта)
 
 ```
@@ -157,13 +195,13 @@ type QueryType =
      
 Этап 5: ORM Core - CRUD операции
   Цель: Реализовать базовые методы ORM
-  1. Create/Insert: db.Users.Insert({ ... }) ⚠️TODO
+  1. Create/Insert: db.Users.Insert({ ... }) ✅
   2. Read/Select: ✅
       * db.Users.FindAll()
       * db.Users.FindBy(fun u -> u.Id = 1)
       * db.Users.Where(fun u -> u.Age > 18).ToList()
-  3. Update: db.Users.Update(1, {| Name = "New Name" |}) ⚠️TODO
-  4. Delete: db.Users.Delete(1) ⚠️ TODO
+  3. Update: db.Users.Update(1, {| Name = "New Name" |}) ✅
+  4. Delete: db.Users.Delete(1) ✅
 
 
 
