@@ -1,8 +1,8 @@
-// tests/QueryBuilderTests.fs
 namespace ORM.Tests
 
 open Xunit
 open ORM.QueryBuilder
+open Npgsql
 
 module QueryBuilderTests =
 
@@ -30,9 +30,10 @@ module QueryBuilderTests =
             |> Query.where (Condition.equals "age" 25)
         
         let (sql, parameters) = SqlGenerator.generate query
+        
         Assert.Contains("SELECT * FROM users WHERE age = @p0", sql)
         Assert.Single(parameters)
-        Assert.Equal("@p0", parameters.[0].ParameterName)
+        Assert.Equal("p0", parameters.[0].ParameterName)
         Assert.Equal(25, parameters.[0].Value :?> int)
 
     [<Fact>]

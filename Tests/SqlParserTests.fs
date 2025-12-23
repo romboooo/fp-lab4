@@ -1,4 +1,3 @@
-// tests/SqlParserTests.fs
 namespace ORM.Tests
 
 open Xunit
@@ -8,7 +7,6 @@ module SqlParserTests =
 
     [<Fact>]
     let ``ColumnType mapping for known types`` () =
-        // Проверяем маппинг известных типов
         let testCases = [
             ("integer", None, Int)
             ("bigint", None, BigInt)
@@ -21,7 +19,6 @@ module SqlParserTests =
         ]
         
         for (input, maxLen, expected) in testCases do
-            // Это упрощенная проверка логики маппинга
             let result = 
                 match input.ToLower() with
                 | "integer" | "int" | "int4" -> Int

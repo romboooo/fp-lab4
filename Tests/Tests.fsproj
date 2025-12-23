@@ -7,10 +7,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="TestDatabase.fs" />
     <Compile Include="DatabaseTests.fs" />
     <Compile Include="SqlParserTests.fs" />
+    <Compile Include="TypeGeneratorTests.fs" />
+    <Compile Include="DataMapperTests.fs" />
     <Compile Include="QueryBuilderTests.fs" />
+    <Compile Include="CRUDTests.fs" />
     <Compile Include="ORMCoreTests.fs" />
+    <Compile Include="ORMCoreIntegrationTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,10 +23,11 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.4" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Lab4.fsproj" />
+    <ProjectReference Include="..\lab4.fsproj" />
   </ItemGroup>
 
 </Project>
