@@ -1,4 +1,4 @@
-# type-safe postgres ORM на языке f#
+# Type-safe postgres ORM на языке f#
 
 ## Структура
 1. src/Database.fs - подключение к БД и выполнение запросов
@@ -65,7 +65,7 @@ services:
 volumes:
   postgres-data:
 ```
-## конфигурация .env файла (необходимо поместить в корень проекта)
+## Конфигурация .env файла (необходимо поместить в корень проекта)
 
 ```
 POSTGRES_USER=username
@@ -211,4 +211,3 @@ type QueryType =
 ## Проблемы
   1. Конфликт зависимостей uGet с FSharp.TypeProviders.SDK (deprecated: при неудачной попытке реализовать type Provider)
   2. Не ясно как гарантировать подключение к бд на этапе компиляции (deprecated: при неудачной попытке реализовать type Provider)
-
