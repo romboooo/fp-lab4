@@ -54,7 +54,7 @@ jobs:
           exit 1
         fi
         
-        if [ -f "src/ORMCore.fs" ]; then
+        if [ -f "src/core/ORMCore.fs" ]; then
           echo "✓ ORMCore.fs found"
         else
           echo "✗ ORMCore.fs missing"
