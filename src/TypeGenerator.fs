@@ -3,7 +3,7 @@ module ORM.TypeGenerator
 open System
 open System.IO
 open ORM.Schema
-open ORM  // Добавляем для доступа к PrimaryKeyAttribute
+open ORM 
 
 module CodeGenerator =
     let toPascalCase (name: string) =
@@ -63,7 +63,7 @@ module CodeGenerator =
             "namespace ORM.GeneratedTypes"
             ""
             "open System"
-            "open ORM"  // Добавляем для доступа к PrimaryKeyAttribute
+            "open ORM"  
             ""
         ]
         

@@ -1,3 +1,4 @@
+// DataMapper.fs - исправленная версия
 module ORM.DataMapper
 
 open System
@@ -28,6 +29,70 @@ module OptionConverter =
             let someCase = FSharpType.GetUnionCases(typedefof<option<_>>.MakeGenericType(innerType))
                             |> Array.find (fun c -> c.Name = "Some")
             FSharpValue.MakeUnion(someCase, [|value|])
+
+module TypeConverter =
+     let convertValue (targetType: Type) (value: obj) : obj =
+        if value = null || value = DBNull.Value then
+            null
+        else
+            try
+                match targetType with
+                | t when t = typeof<int> -> 
+                    match value with
+                    | :? int64 as i64 -> Convert.ToInt32(i64) |> box
+                    | :? int32 -> value
+                    | :? int16 as i16 -> Convert.ToInt32(i16) |> box
+                    | :? byte as b -> Convert.ToInt32(b) |> box
+                    | _ -> Convert.ToInt32(value) |> box
+                | t when t = typeof<int64> -> 
+                    match value with
+                    | :? int64 -> value
+                    | :? int32 as i32 -> Convert.ToInt64(i32) |> box
+                    | _ -> Convert.ToInt64(value) |> box
+                | t when t = typeof<decimal> -> 
+                    match value with
+                    | :? decimal -> value
+                    | :? double as d -> Convert.ToDecimal(d) |> box
+                    | :? float as f -> Convert.ToDecimal(f) |> box
+                    | _ -> Convert.ToDecimal(value) |> box
+                | t when t = typeof<float> -> 
+                    match value with
+                    | :? float -> value
+                    | :? double as d -> Convert.ToDouble(d) |> box
+                    | :? decimal as dec -> Convert.ToDouble(dec) |> box
+                    | _ -> Convert.ToDouble(value) |> box
+                | t when t = typeof<bool> -> 
+                    match value with
+                    | :? bool as b -> box b
+                    | :? int64 as i64 -> (i64 <> 0L) |> box
+                    | :? int32 as i32 -> (i32 <> 0) |> box
+                    | :? int16 as i16 -> (i16 <> 0s) |> box
+                    | :? byte as b -> (b <> 0uy) |> box
+                    | :? string as s -> 
+                        match Boolean.TryParse(s) with
+                        | (true, b) -> box b
+                        | _ -> Convert.ToBoolean(value) |> box
+                    | _ -> Convert.ToBoolean(value) |> box
+                | t when t = typeof<DateTime> -> 
+                    match value with
+                    | :? DateTime as dt -> box dt
+                    | :? string as s -> 
+                        match DateTime.TryParse(s) with
+                        | (true, dt) -> box dt
+                        | _ -> Convert.ToDateTime(value) |> box
+                    | _ -> Convert.ToDateTime(value) |> box
+                | t when t = typeof<string> -> 
+                    match value with
+                    | :? string -> value
+                    | _ -> Convert.ToString(value) |> box
+                | _ -> 
+                    try
+                        Convert.ChangeType(value, targetType)
+                    with
+                    | _ -> value
+            with ex ->
+                printfn "Warning: Failed to convert value %A to type %s: %s" value targetType.Name ex.Message
+                value
 
 let mapDataReaderToRecords<'T> (reader: DbDataReader) : 'T list =
     let results = ResizeArray<'T>()
@@ -69,32 +134,54 @@ let mapDataReaderToRecords<'T> (reader: DbDataReader) : 'T list =
                             let dbValue = reader.GetValue(columnIndex)
                             
                             let convertedValue =
-                                match dbValue with
-                                | :? int as i when prop.PropertyType = typeof<int> -> box i
-                                | :? int64 as i when prop.PropertyType = typeof<int64> -> box i
-                                | :? string as s when prop.PropertyType = typeof<string> -> box s
-                                | :? bool as b when prop.PropertyType = typeof<bool> -> box b
-                                | :? DateTime as d when prop.PropertyType = typeof<DateTime> -> box d
-                                | :? decimal as d when prop.PropertyType = typeof<decimal> -> box d
-                                | :? float as f when prop.PropertyType = typeof<float> -> box f
-                                | _ -> dbValue // fallback
+                                if prop.PropertyType.IsGenericType && 
+                                   prop.PropertyType.GetGenericTypeDefinition() = typedefof<option<_>> then
+                                    let innerType = prop.PropertyType.GetGenericArguments().[0]
+                                    OptionConverter.createOption innerType (TypeConverter.convertValue innerType dbValue)
+                                else
+                                    TypeConverter.convertValue prop.PropertyType dbValue
                             
+                            convertedValue
+                    | None ->
+                        // Проверяем, есть ли колонка с подчеркиваниями (snake_case)
+                        let snakeCaseName = 
+                            System.Text.RegularExpressions.Regex.Replace(
+                                prop.Name, 
+                                "(?<=.)([A-Z])", 
+                                "_$1").ToLowerInvariant()
+                        
+                        match Map.tryFind snakeCaseName columnIndexMap with
+                        | Some columnIndex ->
+                            if reader.IsDBNull(columnIndex) then
+                                if prop.PropertyType.IsGenericType && 
+                                   prop.PropertyType.GetGenericTypeDefinition() = typedefof<option<_>> then
+                                    let innerType = prop.PropertyType.GetGenericArguments().[0]
+                                    OptionConverter.createOption innerType null
+                                else
+                                    if prop.PropertyType.IsValueType then
+                                        Activator.CreateInstance(prop.PropertyType)
+                                    else
+                                        null
+                            else
+                                let dbValue = reader.GetValue(columnIndex)
+                                let convertedValue =
+                                    if prop.PropertyType.IsGenericType && 
+                                       prop.PropertyType.GetGenericTypeDefinition() = typedefof<option<_>> then
+                                        let innerType = prop.PropertyType.GetGenericArguments().[0]
+                                        OptionConverter.createOption innerType (TypeConverter.convertValue innerType dbValue)
+                                    else
+                                        TypeConverter.convertValue prop.PropertyType dbValue
+                                convertedValue
+                        | None ->
                             if prop.PropertyType.IsGenericType && 
                                prop.PropertyType.GetGenericTypeDefinition() = typedefof<option<_>> then
                                 let innerType = prop.PropertyType.GetGenericArguments().[0]
-                                OptionConverter.createOption innerType convertedValue
+                                OptionConverter.createOption innerType null
                             else
-                                convertedValue
-                    | None ->
-                        if prop.PropertyType.IsGenericType && 
-                           prop.PropertyType.GetGenericTypeDefinition() = typedefof<option<_>> then
-                            let innerType = prop.PropertyType.GetGenericArguments().[0]
-                            OptionConverter.createOption innerType null
-                        else
-                            if prop.PropertyType.IsValueType then
-                                Activator.CreateInstance(prop.PropertyType)
-                            else
-                                null)
+                                if prop.PropertyType.IsValueType then
+                                    Activator.CreateInstance(prop.PropertyType)
+                                else
+                                    null)
             
             try
                 let record = FSharpValue.MakeRecord(recordType, values) :?> 'T
@@ -114,7 +201,7 @@ module RecordConverter =
         |> Array.tryFind (fun prop -> 
             prop.GetCustomAttributes(typeof<PrimaryKeyAttribute>, true)
             |> Array.isEmpty
-            |> not)  // Используем типизированную проверку
+            |> not)  
     
     let recordToParameterList (record: 'T) (includePrimaryKey: bool) : (string * obj) list =
         let properties = typeof<'T>.GetProperties()
@@ -145,25 +232,12 @@ module RecordConverter =
                     else
                         value
                 
-                Some (prop.Name.ToLower(), dbValue))
+                // Конвертируем имена свойств из CamelCase в snake_case
+                let columnName = 
+                    System.Text.RegularExpressions.Regex.Replace(
+                        prop.Name, 
+                        "(?<=.)([A-Z])", 
+                        "_$1").ToLowerInvariant()
+                
+                Some (columnName, dbValue))
         |> Array.toList
-module TypeConverter =
-    let private convertValue (targetType: Type) (value: obj) : obj =
-        if value = null || value = DBNull.Value then
-            null
-        else
-            try
-                match targetType with
-                | t when t = typeof<int> -> Convert.ToInt32(value) |> box
-                | t when t = typeof<int64> -> Convert.ToInt64(value) |> box
-                | t when t = typeof<decimal> -> Convert.ToDecimal(value) |> box
-                | t when t = typeof<float> -> Convert.ToDouble(value) |> box  
-                | t when t = typeof<bool> -> Convert.ToBoolean(value) |> box
-                | t when t = typeof<DateTime> -> Convert.ToDateTime(value) |> box
-                | t when t = typeof<string> -> Convert.ToString(value) |> box
-                | _ -> 
-                    Convert.ChangeType(value, targetType)
-            with ex ->
-                printfn "Warning: Failed to convert value %A to type %s: %s" value targetType.Name ex.Message
-                value
-    

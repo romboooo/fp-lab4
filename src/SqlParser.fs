@@ -73,7 +73,7 @@ module SchemaReader =
                 Name = columnName
                 DataType = mapDataType dataType charMaxLength
                 IsNullable = isNullable
-                IsPrimaryKey = false  // Будет установлено позже
+                IsPrimaryKey = false 
                 MaxLength = charMaxLength
             }
             
@@ -112,7 +112,6 @@ module SchemaReader =
         let columns = getColumns connection schema tableName
         let primaryKeys = getPrimaryKeys connection schema tableName |> Set.ofSeq
         
-        // Обновляем колонки, отмечая первичные ключи
         let columnsWithPK =
             columns
             |> List.map (fun col ->
