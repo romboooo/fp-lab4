@@ -84,3 +84,9 @@ module ORMCoreIntegrationTests =
                 if count > 0 then 
                     printfn $"Cleaned up {count} test records"
             | Error _ -> ()
+
+module Program = 
+    [<EntryPoint>]
+    let main _ =
+        printfn "ORM Tests - Use 'dotnet test' to run tests"
+        0
