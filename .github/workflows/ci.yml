@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 9
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore -warnaserror
+
+    - name: Check formatting
+      run: dotnet format --verify-no-changes --verbosity diagnostic
+
+    - name: Validate generated types
+      run: |
+        # Проверяем, что директория generated существует и содержит файлы
+        if [ -d "generated" ]; then
+          echo "Generated directory exists"
+          ls -la generated/
+        else
+          echo "Warning: Generated directory does not exist"
+        fi
+
+    - name: Run basic sanity check
+      run: |
+        # Простая проверка на наличие основных модулей
+        echo "Checking for required files..."
+        if [ -f "src/Database.fs" ]; then
+          echo "✓ Database.fs found"
+        else
+          echo "✗ Database.fs missing"
+          exit 1
+        fi
+        
+        if [ -f "src/ORMCore.fs" ]; then
+          echo "✓ ORMCore.fs found"
+        else
+          echo "✗ ORMCore.fs missing"
+          exit 1
+        fi
+        
+        if [ -f "src/QueryBuilder.fs" ]; then
+          echo "✓ QueryBuilder.fs found"
+        else
+          echo "✗ QueryBuilder.fs missing"
+          exit 1
+        fi
+        
+        echo "Basic file structure validation passed"
+
+    - name: Archive build artifacts
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: dotnet-build-output
+        path: |
+          bin/
+          obj/
+        retention-days: 1
