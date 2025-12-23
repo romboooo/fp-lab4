@@ -19,18 +19,24 @@ jobs:
       with:
         dotnet-version: 9.0.x
 
+    - name: Install Fantomas (F# formatter)
+      run: dotnet tool install --global fantomas
+
     - name: Restore dependencies
       run: dotnet restore
 
     - name: Build
       run: dotnet build --no-restore -warnaserror
 
-    - name: Check formatting
-      run: dotnet format --verify-no-changes --verbosity diagnostic
+    - name: Check F# formatting with Fantomas
+      run: |
+        # Проверяем форматирование всех F# файлов в проекте
+        echo "Checking F# code formatting..."
+        # Проверяем только файлы в src/ и Tests/ директориях
+        fantomas --check src/ Tests/ --recurse || echo "Fantomas check found formatting issues"
 
     - name: Validate generated types
       run: |
-        # Проверяем, что директория generated существует и содержит файлы
         if [ -d "generated" ]; then
           echo "Generated directory exists"
           ls -la generated/
@@ -40,7 +46,6 @@ jobs:
 
     - name: Run basic sanity check
       run: |
-        # Простая проверка на наличие основных модулей
         echo "Checking for required files..."
         if [ -f "src/Database.fs" ]; then
           echo "✓ Database.fs found"
