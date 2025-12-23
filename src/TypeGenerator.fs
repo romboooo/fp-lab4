@@ -56,11 +56,11 @@ module CodeGenerator =
 
     let generateAllTypes (tables: TableInfo list) =
         let headerLines = [
+            "namespace ORM.GeneratedTypes"
+            ""
             "// AUTO-GENERATED FILE - DO NOT EDIT"
             sprintf "// Generated at: %s" (DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"))
             "// Generated from database schema"
-            ""
-            "namespace ORM.GeneratedTypes"
             ""
             "open System"
             "open ORM"  
